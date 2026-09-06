@@ -1,0 +1,8 @@
+# Upstream sources, fetched by clone.sh
+/repos/
+
+# Build trees and the staging prefix dependent builds link against
+/build/
+
+# Generated packages
+/dist/
