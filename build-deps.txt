@@ -7,6 +7,13 @@
 #
 # This file is the single source of truth: the CI workflows install exactly
 # this list. Run ./make.sh features after a build to see what was enabled.
+#
+# It is derived from the upstream projects' own documented and CI dependency
+# lists, not from whatever happens to be on one developer's machine -- a package
+# missing here builds fine locally if it is already installed, and only fails on
+# a clean runner. Deliberately excluded: the ffmpeg libraries and libunwind,
+# which upstream installs only to build its test programs (we configure with
+# tests off), and libaudio-dev, whose NAS driver SDL3 no longer has.
 
 # --- toolchain ---
 build-essential
@@ -32,6 +39,13 @@ libxfixes-dev
 libxi-dev
 libxss-dev
 libxkbcommon-dev
+# XTEST is enabled by default and SDL treats a missing dependency for an
+# enabled X11 option as a hard configure error, not a silent downgrade.
+libxtst-dev
+# Neither of these is pulled in transitively by the packages above, and both
+# are probed directly: Xrender.h and Xproto.h.
+libxrender-dev
+x11proto-dev
 
 # --- video: Wayland and KMS/DRM ---
 libwayland-dev
@@ -53,9 +67,11 @@ libibus-1.0-dev
 libusb-1.0-0-dev
 liburing-dev
 
-# --- text (SDL3_ttf, plutosvg) ---
+# --- text (SDL3_ttf, plutosvg, and SDL3's own bidi/Thai support) ---
 libfreetype-dev
 libharfbuzz-dev
+libfribidi-dev
+libthai-dev
 
 # --- images (SDL3_image) ---
 libpng-dev
