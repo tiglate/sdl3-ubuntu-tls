@@ -35,6 +35,13 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             $(grep -vE '^\s*(#|$)' build-deps.txt)
 
+      - name: Check debian/control against build-deps.txt
+        # The PPA source package declares its build dependencies in
+        # debian/control, which Launchpad reads and build-deps.txt does not
+        # reach. Catch the two drifting apart on the pull request rather than
+        # on an upload that has already consumed a version number.
+        run: ./debian/sync-build-deps.sh --check
+
       - name: Clone upstream sources
         run: ./clone.sh
 

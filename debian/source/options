@@ -1,0 +1,18 @@
+# repos/ carries the six upstream working trees -- that is the point of a
+# vendored source package -- but not their git metadata, and not the vendored
+# copies of their own dependencies.
+#
+# Every SDL satellite is configured with SDLxxx_VENDORED=OFF and builds against
+# the system libraries, so external/ is ~330 MB of submodule (including the
+# prebuilt Windows import libraries under VisualC/external) that no build on
+# Linux ever reads. Dropping it takes the source package from 384 MB to 52 MB.
+# plutosvg's plutovg submodule lives at plutovg/, not under external/, and is
+# kept.
+#
+# Naming any pattern here replaces dpkg-source's default ignore list, so the
+# entries that would otherwise be implied are repeated rather than assumed.
+# Patterns match whole path components, so "dist" is deliberately absent: it
+# would take repos/SDL/src/hidapi/dist with it.
+tar-ignore = .git
+tar-ignore = external
+tar-ignore = build

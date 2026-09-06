@@ -1,0 +1,4 @@
+usr/include/SDL3_net
+usr/lib/*/libSDL3_net.so
+usr/lib/*/cmake/SDL3_net
+usr/lib/*/pkgconfig/sdl3-net.pc

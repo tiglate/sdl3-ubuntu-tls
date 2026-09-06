@@ -28,6 +28,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-24.04
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+      version: ${{ steps.check.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -123,3 +126,21 @@ jobs:
             gh release create "v$version" dist/*.deb \
               --title "v$version" --notes-file "$RUNNER_TEMP/body.md"
           fi
+
+  # Publishing to the PPA is a separate job, not a step, because it needs a
+  # different thing entirely: Launchpad takes a signed *source* package and does
+  # its own building, so it consumes the pinned sources rather than the .debs
+  # this job just produced.
+  #
+  # It is called rather than triggered. A release published with GITHUB_TOKEN,
+  # which is what the step above uses, does not fire the `release` event -- that
+  # is GitHub's guard against workflows triggering each other in a loop -- so an
+  # `on: release` workflow would simply never run.
+  ppa:
+    needs: release
+    if: needs.release.outputs.proceed == 'true'
+    uses: ./.github/workflows/ppa.yml
+    secrets: inherit
+    with:
+      series: noble
+      revision: '1'

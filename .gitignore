@@ -6,3 +6,13 @@
 
 # Generated packages
 /dist/
+
+# debhelper byproducts. debian/changelog is tracked -- the workflow regenerates
+# it from .version before every upload -- but everything dh writes is not.
+/debian/files
+/debian/tmp/
+/debian/.debhelper/
+/debian/*.substvars
+/debian/*.debhelper.log
+/debian/debhelper-build-stamp
+/debian/lib*/

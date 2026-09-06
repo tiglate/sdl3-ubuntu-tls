@@ -1,0 +1,6 @@
+sdl3-stack (3.4.16+1.0.0~noble1) noble; urgency=medium
+
+  * Initial packaging for ppa:tiglate/ppa.
+  * Regenerated from .version by .github/workflows/ppa.yml on every upload.
+
+ -- Tiglate Pileser III <tiglate@fastmail.com>  Sun, 06 Sep 2026 12:00:00 -0300

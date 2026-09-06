@@ -1,0 +1,4 @@
+usr/include/SDL3_image
+usr/lib/*/libSDL3_image.so
+usr/lib/*/cmake/SDL3_image
+usr/lib/*/pkgconfig/sdl3-image.pc

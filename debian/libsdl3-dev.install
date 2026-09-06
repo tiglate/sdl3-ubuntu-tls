@@ -1,0 +1,6 @@
+usr/include/SDL3
+usr/lib/*/libSDL3.so
+usr/lib/*/libSDL3.a
+usr/lib/*/libSDL3_test.a
+usr/lib/*/cmake/SDL3
+usr/lib/*/pkgconfig/sdl3.pc

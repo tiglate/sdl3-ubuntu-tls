@@ -1,0 +1,256 @@
+# Publishes the libraries to ppa:tiglate/ppa.
+#
+# A PPA does not take the .deb files the other workflows build. Launchpad only
+# accepts a GPG-signed *source* package and rebuilds the binaries itself, in its
+# own chroots, for every series and architecture the PPA has enabled. So this
+# does not consume dist/ at all: it reassembles the pinned upstream trees into
+# one source package (see debian/) and uploads that.
+#
+# It is a reusable workflow rather than an `on: release` one because a release
+# published by GITHUB_TOKEN -- which is how release.yml publishes -- deliberately
+# does not trigger further workflow runs. release.yml calls this job directly
+# instead. The release trigger below is kept for releases published by hand.
+name: ppa
+
+on:
+  workflow_call:
+    inputs:
+      series:
+        description: 'Ubuntu series to target'
+        type: string
+        default: noble
+      revision:
+        description: 'PPA revision suffix, bumped to re-upload the same upstream versions'
+        type: string
+        default: '1'
+      dry_run:
+        description: 'Build the source package and a real binary build from it, but do not upload'
+        type: boolean
+        default: false
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      series:
+        description: 'Ubuntu series to target'
+        type: string
+        default: noble
+      revision:
+        description: 'PPA revision suffix, bumped to re-upload the same upstream versions'
+        type: string
+        default: '1'
+      dry_run:
+        description: 'Build the source package and a real binary build from it, but do not upload'
+        type: boolean
+        default: false
+
+# Launchpad rejects a version it has already seen, so two uploads racing each
+# other is never useful.
+concurrency:
+  group: ppa
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ppa:
+    runs-on: ubuntu-24.04
+    env:
+      PPA: ppa:tiglate/ppa
+      SOURCE_PKG: sdl3-stack
+      SERIES: ${{ inputs.series || 'noble' }}
+      PPA_REVISION: ${{ inputs.revision || '1' }}
+      DEBFULLNAME: ${{ vars.PPA_MAINTAINER_NAME || 'Tiglate Pileser III' }}
+      DEBEMAIL: ${{ vars.PPA_MAINTAINER_EMAIL || 'tiglate@fastmail.com' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # On a release event github.ref is already the tag; when called from
+          # release.yml it is the branch the release was cut from, whose
+          # .version is the one that was just published.
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          # Deliberately not the build dependencies: building a source package
+          # does not compile anything. The dry run installs them separately.
+          sudo apt-get install -y --no-install-recommends \
+            devscripts dput debhelper dpkg-dev lintian git ca-certificates
+
+      - name: Check debian/control against build-deps.txt
+        # A package in one list and not the other is a backend that is enabled
+        # locally and quietly missing from the PPA build.
+        run: ./debian/sync-build-deps.sh --check
+
+      - name: Check out the pinned upstream sources
+        # --pinned, not a plain clone: the upload has to contain the versions
+        # this commit's .version records, not whatever upstream released since.
+        run: ./clone.sh --pinned
+
+      - name: Work out the package version
+        id: version
+        run: |
+          set -euo pipefail
+          read_key() { sed -n "s/^$1=//p" .version | head -1; }
+          sdl="$(read_key SDL)"
+          repo="$(read_key VERSION)"
+          [ -n "$sdl" ] && [ -n "$repo" ] || { echo "cannot read .version"; exit 1; }
+
+          # <SDL upstream>+<this repository's version>~<series><revision>.
+          #
+          # One source package carries six upstreams, so no single upstream
+          # version identifies it. SDL3's leads, so the package still sorts
+          # sensibly against a distro SDL3, and the repository version -- which
+          # clone.sh bumps whenever *any* pinned library moves -- disambiguates
+          # the releases where SDL3 itself stood still. The ~series suffix keeps
+          # per-series uploads distinct and sorts below the same version without
+          # it, which is what you want if a later Ubuntu ships its own.
+          version="${sdl}+${repo}~${SERIES}${PPA_REVISION}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Source package version: $version"
+
+      - name: Import the signing key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.PPA_GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.PPA_GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GPG_PRIVATE_KEY:-}" ]; then
+            # A dry run uploads nothing, so it is allowed to produce an unsigned
+            # source package. That makes it usable for checking the packaging
+            # before the Launchpad side has been set up at all.
+            if [ '${{ inputs.dry_run }}' = 'true' ]; then
+              echo "::warning::PPA_GPG_PRIVATE_KEY is not set; building unsigned (dry run)"
+              exit 0
+            fi
+            echo "PPA_GPG_PRIVATE_KEY is not set; see README for the one-time setup" >&2
+            exit 1
+          fi
+          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
+          echo 'allow-loopback-pinentry' >> ~/.gnupg/gpg-agent.conf
+          gpgconf --kill gpg-agent || true
+          printf '%s\n' "$GPG_PRIVATE_KEY" | gpg --batch --quiet --import
+
+          keyid="$(gpg --list-secret-keys --with-colons \
+                     | awk -F: '/^sec:/ { print $5; exit }')"
+          [ -n "$keyid" ] || { echo "no secret key was imported" >&2; exit 1; }
+          echo "SIGN_KEY=$keyid" >> "$GITHUB_ENV"
+          echo "Signing with $keyid"
+
+          # debuild shells out to gpg for the .dsc and the .changes. A key with
+          # a passphrase needs loopback pinentry, since there is no terminal.
+          if [ -n "${GPG_PASSPHRASE:-}" ]; then
+            umask 077
+            printf '%s' "$GPG_PASSPHRASE" > "$RUNNER_TEMP/gpg-pass"
+            cat > "$RUNNER_TEMP/gpg-wrapper" <<EOF
+          #!/bin/sh
+          exec gpg --batch --yes --pinentry-mode loopback \\
+                   --passphrase-file "$RUNNER_TEMP/gpg-pass" "\$@"
+          EOF
+            chmod +x "$RUNNER_TEMP/gpg-wrapper"
+            echo "SIGN_COMMAND=$RUNNER_TEMP/gpg-wrapper" >> "$GITHUB_ENV"
+          fi
+
+      - name: Generate debian/changelog
+        run: |
+          set -euo pipefail
+          version='${{ steps.version.outputs.version }}'
+          # The committed changelog is a bootstrap entry; the real one is
+          # derived from .version so it can never disagree with what is built.
+          {
+            echo "$SOURCE_PKG ($version) $SERIES; urgency=medium"
+            echo
+            echo "  * Automated build of the pinned upstream releases:"
+            sed -n '/^VERSION=/d; s/^\([A-Z_]*\)=\(.*\)/    - \1 \2/p' .version
+            echo
+            printf ' -- %s <%s>  %s\n' \
+              "$DEBFULLNAME" "$DEBEMAIL" "$(date -R)"
+          } > debian/changelog
+          cat debian/changelog
+
+      - name: Build the source package
+        run: |
+          set -euo pipefail
+          # -d: a source-only build compiles nothing, so there is no reason to
+          # install the ~60 build dependencies just to satisfy the check.
+          # --no-lintian: lintian runs as its own step below, where its
+          # findings are reported without failing the upload over a tag that a
+          # vendored personal-PPA package is always going to trip.
+          # --no-lintian is a debuild option, so it has to come before the
+          # dpkg-buildpackage ones; debuild passes everything after the first
+          # of those straight through and rejects it.
+          if [ -n "${SIGN_KEY:-}" ]; then
+            args=(--no-lintian -S -d -k"$SIGN_KEY")
+            if [ -n "${SIGN_COMMAND:-}" ]; then
+              args+=(-p"$SIGN_COMMAND")
+            fi
+          else
+            args=(--no-lintian -S -d -us -uc)
+          fi
+          debuild "${args[@]}"
+          echo
+          ls -lh ../${SOURCE_PKG}_*
+
+      - name: Inspect the source package
+        run: |
+          set -euo pipefail
+          version='${{ steps.version.outputs.version }}'
+          # upload-artifact refuses paths outside the workspace, and debuild
+          # writes to the parent directory.
+          mkdir -p ppa-out
+          cp ../${SOURCE_PKG}_${version}* ppa-out/
+          echo "=== .dsc"
+          cat "ppa-out/${SOURCE_PKG}_${version}.dsc"
+          echo
+          echo "=== tarball, top three levels"
+          tar tf "ppa-out/${SOURCE_PKG}_${version}.tar.xz" \
+            | cut -d/ -f1-3 | sort -u | head -40
+          echo
+          echo "=== lintian (informational)"
+          lintian "ppa-out/${SOURCE_PKG}_${version}_source.changes" || true
+
+      # A Launchpad build failure costs a version number that cannot be reused,
+      # so this reproduces the build locally from the source package that is
+      # about to be uploaded -- the same thing Launchpad will do.
+      - name: Dry run - build the binaries from the source package
+        if: inputs.dry_run
+        run: |
+          set -euo pipefail
+          version='${{ steps.version.outputs.version }}'
+          workdir="$RUNNER_TEMP/testbuild"
+          mkdir -p "$workdir"
+          dpkg-source -x "../${SOURCE_PKG}_${version}.dsc" "$workdir/src"
+          sudo apt-get install -y --no-install-recommends \
+            $(grep -vE '^\s*(#|$)' build-deps.txt)
+          cd "$workdir/src"
+          dpkg-buildpackage -us -uc -b
+          echo
+          ls -lh "$workdir"/*.deb
+
+      - name: Upload to the PPA
+        if: ${{ !inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          version='${{ steps.version.outputs.version }}'
+          if [ -z "${SIGN_KEY:-}" ]; then
+            echo "no signing key was imported; Launchpad only accepts signed uploads" >&2
+            exit 1
+          fi
+          changes="../${SOURCE_PKG}_${version}_source.changes"
+          echo "Uploading $changes to $PPA"
+          # Launchpad accepts a version exactly once. If this fails with
+          # "already exists", re-run with a higher `revision` input.
+          dput "$PPA" "$changes"
+          echo
+          echo "Uploaded. Launchpad emails the result and builds appear at"
+          echo "  https://launchpad.net/~tiglate/+archive/ubuntu/ppa/+packages"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ppa-source-${{ env.SERIES }}
+          path: ppa-out/
+          if-no-files-found: warn
+          retention-days: 14

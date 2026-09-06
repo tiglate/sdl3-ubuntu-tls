@@ -23,6 +23,10 @@ JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 FRESH="${FRESH:-0}"
 MAKE_VERBOSE="${MAKE_VERBOSE:-0}"
 DEB_MAINTAINER="${DEB_MAINTAINER:-}"
+# Build and stage, but do not assemble any .deb. Set by debian/rules, which
+# wants the merged install tree under $STAGING and lets debhelper do the
+# splitting and dependency resolution its own way.
+STAGE_ONLY="${STAGE_ONLY:-0}"
 
 die() { echo "${SCRIPT_NAME:-make}: error: $*" >&2; exit 1; }
 log() { echo "==> $*"; }
@@ -197,6 +201,14 @@ deb_assemble() {
 make_packages() {
     local pkgstage="$1" runtime_pkg="$2" dev_pkg="$3" version="$4" \
           homepage="$5" license="$6" summary="$7" body="$8" extra_deps="${9:-}"
+
+    # Under STAGE_ONLY the caller only wanted the staging prefix populated;
+    # $STAGING already holds it, so this private copy has served its purpose.
+    if [ "$STAGE_ONLY" = "1" ]; then
+        log "staged $runtime_pkg / $dev_pkg $version (not packaging)"
+        rm -rf "$pkgstage"
+        return 0
+    fi
 
     local root="$pkgstage/usr"
     [ -d "$root" ] || die "nothing was installed under $pkgstage/usr"

@@ -68,6 +68,7 @@ compiled against one SDL3 while the package declares a dependency on another.
 | `make-plutosvg.sh` | plutosvg and the plutovg canvas it bundles. |
 | `lib/common.sh` | Shared build and packaging machinery. |
 | `verify.sh` | Build and run a consumer against the packages to prove they work. |
+| `debian/` | Debian source packaging for the PPA. `debian/sync-build-deps.sh` regenerates `Build-Depends` from `build-deps.txt`. |
 
 Each `make-*.sh` can be run on its own if its dependencies are already staged.
 
@@ -103,6 +104,10 @@ the chosen SDL3 actually satisfies, reporting anything held back:
 ==> SDL_image 3.4.6 (needs SDL3 3.4.0)
 ==> SDL_ttf 3.2.2 (needs SDL3 3.2.6)
 ```
+
+A release build does not repeat this. `./clone.sh --pinned` checks out exactly
+what `.version` already records, so a tag is built from the tree it was cut
+from rather than from whatever upstream published in the meantime.
 
 The result is written to `.version`, which is tracked in git:
 
@@ -153,10 +158,104 @@ mkdir -p /tmp/x && for d in dist/*.deb; do dpkg-deb -x "$d" /tmp/x; done
 | --- | --- | --- |
 | `build` | push, pull request | Builds every package, installs them, runs `verify.sh`, checks they uninstall cleanly, and uploads the `.deb` files as artifacts. |
 | `release` | weekly schedule, manual | Runs `clone.sh`; if `VERSION` moved to something not yet tagged, builds, verifies, commits `.version`, and publishes a GitHub release with the packages attached. |
+| `ppa` | called by `release`, manual | Builds a signed Debian **source** package and uploads it to `ppa:tiglate/ppa`. |
 
 The release job keys entirely off `.version`: no upstream change means no
 version bump, no new tag, and no build. Trigger it by hand from the Actions tab
 (with **force** to rebuild an existing tag).
+
+## Publishing to the PPA
+
+The packages are also published to
+[`ppa:tiglate/ppa`](https://launchpad.net/~tiglate/+archive/ubuntu/ppa), which
+installs them the ordinary way:
+
+```sh
+sudo add-apt-repository ppa:tiglate/ppa
+sudo apt install libsdl3-dev libsdl3-image-dev libsdl3-mixer-dev \
+                 libsdl3-net-dev libsdl3-ttf-dev
+```
+
+### Why the PPA does not use the `.deb` files
+
+Launchpad does not accept binary packages. A PPA takes a GPG-signed *source*
+package and builds the binaries itself, in its own clean chroot, for every
+series and architecture the PPA has enabled. So the `ppa` workflow ignores
+`dist/` entirely: it checks out the upstream sources at the versions `.version`
+records (`./clone.sh --pinned`) and uploads those.
+
+### One source package, twelve binaries
+
+The six libraries have to be built in dependency order against each other, and a
+Launchpad build can only see binaries the PPA has already *published* — roughly
+twenty minutes behind the build that produced them. Six separate source packages
+would therefore need ordered uploads and dependency-wait retries before the set
+converged.
+
+Instead, `debian/` describes a single source package, `sdl3-stack`, that vendors
+all six upstream trees and produces all twelve binaries from one build. It is
+not how Debian proper would do it, but for a personal PPA it means one upload,
+one build, and no ordering problem. The build itself is not reimplemented:
+`debian/rules` runs `make.sh` with `STAGE_ONLY=1`, which stops after populating
+`build/staging` instead of assembling `.deb` files, and `debian/*.install` splits
+that tree the same way `lib/common.sh` does locally.
+
+`debian/source/options` keeps the upload small: every satellite is configured
+`SDLxxx_VENDORED=OFF` and builds against the system libraries, so the `external/`
+submodules are ~330 MB that no Linux build reads. Excluding them takes the source
+package from 384 MB to 17 MB compressed.
+
+### Versioning
+
+Uploads are versioned `<SDL>+<VERSION>~<series><revision>` — for example
+`3.4.16+1.0.0~noble1`. One source package carries six upstreams, so no single
+upstream version identifies it: SDL3's leads so the package sorts sensibly
+against a distro SDL3, and `VERSION` (which `clone.sh` bumps whenever *any*
+pinned library moves) disambiguates the releases where SDL3 itself stood still.
+
+**Launchpad accepts a version exactly once and there is no `--clobber`.** To
+re-upload the same upstream versions — after a build failure, or a packaging
+fix — re-run the workflow by hand with a higher `revision`.
+
+### One-time setup
+
+None of this can be automated; it has to be done once, by hand.
+
+1. Sign the [Ubuntu Code of Conduct](https://launchpad.net/codeofconduct) on
+   your Launchpad account, and create the PPA if it does not exist.
+2. Create an OpenPGP key, publish it to the keyserver, and register its
+   fingerprint at <https://launchpad.net/~tiglate/+editpgpkeys>. Launchpad
+   confirms it by sending an encrypted email you have to decrypt and click.
+3. Export the private key and store it as the repository secret
+   `PPA_GPG_PRIVATE_KEY`:
+
+   ```sh
+   gpg --armor --export-secret-keys <key-id>
+   ```
+
+   If the key has a passphrase, store that as `PPA_GPG_PASSPHRASE` too; the
+   workflow drives `gpg` through loopback pinentry when it is set.
+4. Optionally set the repository variables `PPA_MAINTAINER_NAME` and
+   `PPA_MAINTAINER_EMAIL`. They default to the `Maintainer` in `debian/control`,
+   and the email should match an address on the signing key.
+
+### Before an upload that matters
+
+A Launchpad build failure costs a version number that cannot be reused, so run
+the workflow by hand from the Actions tab with **dry_run** first. That builds the
+source package and then rebuilds the binaries from it locally — the same thing
+Launchpad is about to do — without uploading anything.
+
+Adding another series (`jammy`, `plucky`, …) means running the workflow once per
+series: each gets its own upload, versioned `~jammy1`, `~plucky1`, and so on.
+
+Two differences from the `.deb` files `make.sh` produces are worth knowing about.
+debhelper strips the shared libraries and emits matching `-dbgsym` packages,
+which the local build does not — they land in the PPA's debug archive. And
+`dpkg-shlibdeps` computes the inter-package dependencies from the libraries
+themselves, rather than from the versions `make-sdl-ttf.sh` and
+`make-sdl-mixer.sh` state by hand, because in a Launchpad chroot the
+dependencies really are installed.
 
 ## Requirements
 

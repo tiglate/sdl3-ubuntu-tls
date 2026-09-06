@@ -80,7 +80,7 @@ while [ $# -gt 0 ]; do
         *) die "unknown option: $1 (see ./make.sh --help)" ;;
     esac
 done
-export JOBS FRESH MAKE_VERBOSE DEB_MAINTAINER
+export JOBS FRESH MAKE_VERBOSE DEB_MAINTAINER STAGE_ONLY
 
 # Maps a library name to the repository clone.sh checks out for it.
 repo_of() {
@@ -151,6 +151,12 @@ mkdir -p "$DIST_DIR"
 for lib in "${TARGETS[@]}"; do
     "$ROOT/make-$lib.sh"
 done
+
+if [ "${STAGE_ONLY:-0}" = "1" ]; then
+    echo
+    log "staged into $STAGING (STAGE_ONLY=1, no packages built)"
+    exit 0
+fi
 
 echo
 log "packages in $DIST_DIR:"

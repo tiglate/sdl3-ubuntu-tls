@@ -43,14 +43,20 @@ then writes ./.version.
 Options:
   --offline    Do not contact the network; only re-read what is already cloned
                 and rewrite .version.
+  --pinned     Check out exactly the versions .version already records, instead
+                of resolving the newest compatible set. Leaves .version alone.
+                This is what a release build uses: it reproduces the tree a tag
+                was cut from, rather than whatever upstream published since.
   -h, --help   Show this help.
 EOF
 }
 
 OFFLINE=0
+PINNED=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --offline) OFFLINE=1; shift ;;
+        --pinned) PINNED=1; shift ;;
         -h|--help) usage; exit 0 ;;
         *) die "unknown option: $1 (see ./clone.sh --help)" ;;
     esac
@@ -128,6 +134,26 @@ for entry in "${PROJECTS[@]}"; do
     IFS='|' read -r name url _ <<< "$entry"
     ensure_clone "$name" "$url"
 done
+
+# --- pinned ----------------------------------------------------------------
+#
+# Resolution is deliberately skipped here. A release is built from the versions
+# its tag recorded, so re-resolving would quietly build something else the
+# moment upstream publishes between the tag and the build.
+
+if [ "$PINNED" -eq 1 ]; then
+    [ -f "$VERSION_FILE" ] || die "--pinned needs $VERSION_FILE, which does not exist"
+    for entry in "${PROJECTS[@]}"; do
+        IFS='|' read -r name _ prefix <<< "$entry"
+        key="$(echo "$name" | tr '[:lower:]-' '[:upper:]_')"
+        version="$(sed -n "s/^${key}=//p" "$VERSION_FILE" | head -1 || true)"
+        [ -n "$version" ] || die "$VERSION_FILE records no version for $name"
+        log "$name $version (pinned)"
+        checkout "$name" "$prefix$version"
+    done
+    log "checked out the versions recorded in $VERSION_FILE"
+    exit 0
+fi
 
 # SDL3 first: everything else is chosen to fit it.
 SDL_VERSION="$(stable_tags SDL "release-" 3 | tail -1)"

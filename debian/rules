@@ -1,0 +1,63 @@
+#!/usr/bin/make -f
+#
+# The build itself is not reimplemented here. make.sh already knows the
+# dependency order, the CMake flags each library needs and the staging prefix
+# that lets the chain build without installing anything -- restating any of that
+# in debian/rules would be a second copy to keep in step. STAGE_ONLY tells it to
+# stop after staging rather than assembling .debs with dpkg-deb, which leaves
+# build/staging/usr as the merged install tree debhelper then splits through the
+# debian/*.install files.
+
+# dh's usual --parallel plumbing goes through dh_auto_build, which is overridden
+# here, so honour DEB_BUILD_OPTIONS=parallel=N by hand.
+NUMJOBS := $(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+ifeq ($(NUMJOBS),)
+NUMJOBS := $(shell nproc)
+endif
+
+DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+
+export STAGE_ONLY = 1
+# Launchpad builds have no network. make.sh only reaches for clone.sh when
+# repos/ is absent, and the source package ships it, so this is belt and braces.
+export GIT_TERMINAL_PROMPT = 0
+
+%:
+	dh $@
+
+# CMake is configured per library by make.sh, not once for the source tree.
+override_dh_auto_configure:
+
+override_dh_auto_build:
+	./make.sh -j $(NUMJOBS)
+
+# verify.sh needs the packages installed, which cannot happen mid-build.
+override_dh_auto_test:
+
+override_dh_auto_install:
+	mkdir -p debian/tmp
+	cp -a build/staging/usr debian/tmp/
+
+override_dh_auto_clean:
+	./make.sh purge
+	rm -rf debian/tmp
+
+# A file appearing in the staging tree that no .install claims -- a new header
+# directory, a renamed CMake config -- would otherwise be dropped silently and
+# only surface as a broken -dev package.
+override_dh_missing:
+	dh_missing --fail-missing
+
+# The satellites link libSDL3.so.0, and SDL3_ttf additionally links libplutosvg
+# and libplutovg -- none of which are installed in the build chroot, and the
+# packages deliberately carry no rpath. Without -l pointing at the sibling
+# packages dpkg-shlibdeps cannot find them and fails outright, taking every
+# dependency with it rather than just the unresolvable ones. This is the same
+# problem lib/common.sh's deb_shlibdeps() solves for the local build.
+#
+# dh_makeshlibs has already written each package's DEBIAN/shlibs by this point,
+# so once the libraries are findable dpkg-shlibdeps resolves them to
+# libsdl3-0 (>= ...) and libplutosvg-0 (>= ...) on its own.
+override_dh_shlibdeps:
+	dh_shlibdeps \
+	    -l$(CURDIR)/debian/libsdl3-0/usr/lib/$(DEB_HOST_MULTIARCH):$(CURDIR)/debian/libplutosvg-0/usr/lib/$(DEB_HOST_MULTIARCH)

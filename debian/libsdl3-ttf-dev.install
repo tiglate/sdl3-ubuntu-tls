@@ -1,0 +1,4 @@
+usr/include/SDL3_ttf
+usr/lib/*/libSDL3_ttf.so
+usr/lib/*/cmake/SDL3_ttf
+usr/lib/*/pkgconfig/sdl3-ttf.pc

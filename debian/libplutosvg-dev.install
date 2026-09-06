@@ -1,0 +1,8 @@
+usr/include/plutosvg
+usr/include/plutovg
+usr/lib/*/libplutosvg.so
+usr/lib/*/libplutovg.so
+usr/lib/*/cmake/plutosvg
+usr/lib/*/cmake/plutovg
+usr/lib/*/pkgconfig/plutosvg.pc
+usr/lib/*/pkgconfig/plutovg.pc
