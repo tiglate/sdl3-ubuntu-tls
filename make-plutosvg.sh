@@ -22,7 +22,16 @@ configure_and_build "$SRC" "$BUILD" \
     -DPLUTOSVG_BUILD_EXAMPLES=OFF \
     `# SDL3_ttf uses plutosvg's FreeType hook (plutosvg-ft.h), which upstream` \
     `# leaves off by default -- without it the library is useless to SDL3_ttf.` \
-    -DPLUTOSVG_ENABLE_FREETYPE=ON
+    -DPLUTOSVG_ENABLE_FREETYPE=ON \
+\
+    `# plutosvg only falls back to its bundled plutovg when find_package cannot` \
+    `# see one already (CMakeLists.txt: "if(NOT plutovg_FOUND) add_subdirectory").` \
+    `# Once libplutosvg-dev is installed that check succeeds, and the next build` \
+    `# quietly produces a libplutosvg-0 carrying no libplutovg.so at all -- while` \
+    `# its .pc still says "Requires: plutovg". The package pair is defined as` \
+    `# shipping both, so refuse to find an outside copy, the same way SDL3 is` \
+    `# pinned for the satellites.` \
+    -DCMAKE_DISABLE_FIND_PACKAGE_plutovg=ON
 
 stage_install "$BUILD" "$PKGSTAGE"
 
