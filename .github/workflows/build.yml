@@ -26,7 +26,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install build dependencies
         run: |
@@ -67,7 +67,7 @@ jobs:
           # shellcheck disable=SC2086
           sudo apt-get remove -y $names
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sdl3-debs-noble-amd64
           path: dist/*.deb
