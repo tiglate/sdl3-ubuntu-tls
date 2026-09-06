@@ -1,0 +1,125 @@
+# Watches upstream for new releases and publishes packages when they appear.
+#
+# clone.sh resolves the newest mutually compatible set and bumps VERSION in
+# .version whenever any of them moved. That bump is the whole trigger: if the
+# tag for the resulting version already exists there is nothing new to publish,
+# so the job stops before spending time on a build.
+name: release
+
+on:
+  schedule:
+    # Mondays, early. Upstream SDL releases are not frequent enough to warrant
+    # checking more often.
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Build and publish even if the tag already exists'
+        type: boolean
+        default: false
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tag check below needs the tags, which a shallow clone omits.
+          fetch-depth: 0
+
+      - name: Check upstream for new releases
+        id: check
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends git cmake
+          ./clone.sh
+          version="$(sed -n 's/^VERSION=//p' .version | head -1)"
+          [ -n "$version" ] || { echo "no VERSION in .version"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            exists=true
+          else
+            exists=false
+          fi
+          if [ "$exists" = true ] && [ "${{ inputs.force }}" != "true" ]; then
+            echo "v$version is already released; nothing to do"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          {
+            echo "## Upstream versions"
+            echo
+            echo '| Library | Version |'
+            echo '| --- | --- |'
+            # sed rather than grep -v: an empty result from grep exits 1,
+            # which pipefail would turn into a failed step.
+            sed -n '/^VERSION=/d; s/^\([A-Z_]*\)=\(.*\)/| \1 | \2 |/p' .version
+          } > "$RUNNER_TEMP/release-notes.md"
+
+      - name: Install build dependencies
+        if: steps.check.outputs.proceed == 'true'
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            $(grep -vE '^\s*(#|$)' build-deps.txt)
+
+      - name: Build packages
+        if: steps.check.outputs.proceed == 'true'
+        run: ./make.sh
+
+      - name: Verify the packages are usable
+        if: steps.check.outputs.proceed == 'true'
+        run: |
+          sudo apt-get install -y ./dist/*.deb
+          ./verify.sh
+
+      - name: Commit the new .version
+        if: steps.check.outputs.proceed == 'true'
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .version; then
+            echo ".version unchanged; not committing"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .version
+          git commit -m "Update pinned upstream versions to ${{ steps.check.outputs.version }}"
+          git push
+
+      - name: Publish the release
+        if: steps.check.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version='${{ steps.check.outputs.version }}'
+          {
+            echo "Packages built on Ubuntu 24.04 (noble), amd64."
+            echo
+            echo 'Install with:'
+            echo
+            echo '```sh'
+            echo 'sudo apt install ./*.deb'
+            echo '```'
+            echo
+            cat "$RUNNER_TEMP/release-notes.md"
+          } > "$RUNNER_TEMP/body.md"
+          # --clobber so a forced re-run replaces the assets instead of failing.
+          if gh release view "v$version" >/dev/null 2>&1; then
+            gh release upload "v$version" dist/*.deb --clobber
+            gh release edit "v$version" --notes-file "$RUNNER_TEMP/body.md"
+          else
+            gh release create "v$version" dist/*.deb \
+              --title "v$version" --notes-file "$RUNNER_TEMP/body.md"
+          fi

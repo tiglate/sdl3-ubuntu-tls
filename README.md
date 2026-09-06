@@ -67,6 +67,7 @@ compiled against one SDL3 while the package declares a dependency on another.
 | `make-sdl-image.sh`, `make-sdl-mixer.sh`, `make-sdl-net.sh`, `make-sdl-ttf.sh` | The satellites. |
 | `make-plutosvg.sh` | plutosvg and the plutovg canvas it bundles. |
 | `lib/common.sh` | Shared build and packaging machinery. |
+| `verify.sh` | Build and run a consumer against the packages to prove they work. |
 
 Each `make-*.sh` can be run on its own if its dependencies are already staged.
 
@@ -119,23 +120,43 @@ whenever any upstream version changes, so a CI job can re-run `clone.sh`, notice
 ## Optional dependencies
 
 Backends are detected at build time, so what you get depends on what is
-installed when you build. To cover essentially everything:
+installed when you build. [`build-deps.txt`](build-deps.txt) lists everything
+worth having; it is the same list the CI workflows install:
 
 ```sh
-sudo apt install \
-  libasound2-dev libpulse-dev libpipewire-0.3-dev libjack-jackd2-dev libsndio-dev \
-  libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxfixes-dev libxi-dev \
-  libxss-dev libxkbcommon-dev libwayland-dev wayland-protocols libdecor-0-dev \
-  libdrm-dev libgbm-dev libgl-dev libgles-dev libegl-dev libvulkan-dev \
-  libudev-dev libdbus-1-dev libibus-1.0-dev libusb-1.0-0-dev liburing-dev \
-  libfreetype-dev libharfbuzz-dev \
-  libpng-dev libjpeg-dev libtiff-dev libwebp-dev libavif-dev libjxl-dev \
-  libvorbis-dev libopusfile-dev libflac-dev libmpg123-dev libxmp-dev \
-  libwavpack-dev libgme-dev libfluidsynth-dev
+sudo apt install $(grep -vE '^\s*(#|$)' build-deps.txt)
 ```
 
 Run `./make.sh features` after a build to see what was actually enabled. If you
-install something new afterwards, rebuild with `./make.sh --fresh`.
+install something new afterwards, rebuild with `./make.sh --fresh` — CMake
+caches its detection results and will not notice on its own.
+
+## Verifying
+
+`verify.sh` builds a small consumer (`tests/consumer`) that finds every packaged
+library through its installed CMake config, links the imported targets and
+initialises the subsystems that load dependencies at run time. It checks the
+packages are *usable*, not merely that they built.
+
+```sh
+sudo apt install ./dist/*.deb
+./verify.sh                      # against the installed packages
+
+# or, without installing anything:
+mkdir -p /tmp/x && for d in dist/*.deb; do dpkg-deb -x "$d" /tmp/x; done
+./verify.sh /tmp/x/usr
+```
+
+## Continuous integration
+
+| Workflow | Trigger | What it does |
+| --- | --- | --- |
+| `build` | push, pull request | Builds every package, installs them, runs `verify.sh`, checks they uninstall cleanly, and uploads the `.deb` files as artifacts. |
+| `release` | weekly schedule, manual | Runs `clone.sh`; if `VERSION` moved to something not yet tagged, builds, verifies, commits `.version`, and publishes a GitHub release with the packages attached. |
+
+The release job keys entirely off `.version`: no upstream change means no
+version bump, no new tag, and no build. Trigger it by hand from the Actions tab
+(with **force** to rebuild an existing tag).
 
 ## Requirements
 

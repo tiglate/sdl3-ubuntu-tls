@@ -1,0 +1,75 @@
+# Builds every package and proves it is usable, on each push and pull request.
+#
+# The packages are installed for real here rather than just inspected: a .deb
+# that builds but declares the wrong dependencies, or ships its CMake config in
+# the wrong directory, only fails once something tries to consume it.
+name: build
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md']
+  pull_request:
+    paths-ignore: ['**.md']
+  workflow_dispatch:
+
+# A newer push makes an in-flight build pointless, except on main where the
+# history is worth keeping complete.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          # build-deps.txt is the same list the README tells humans to install.
+          sudo apt-get install -y --no-install-recommends \
+            $(grep -vE '^\s*(#|$)' build-deps.txt)
+
+      - name: Clone upstream sources
+        run: ./clone.sh
+
+      - name: Show selected versions
+        run: ./make.sh list
+
+      - name: Build packages
+        run: ./make.sh
+
+      - name: Show enabled backends
+        run: ./make.sh features
+
+      - name: Inspect packages
+        run: |
+          for deb in dist/*.deb; do
+            echo "=== $deb"
+            dpkg-deb -f "$deb" Package Version Depends
+          done
+
+      - name: Install the packages
+        run: sudo apt-get install -y ./dist/*.deb
+
+      - name: Verify the packages are usable
+        run: ./verify.sh
+
+      - name: Check the packages uninstall cleanly
+        run: |
+          set -euo pipefail
+          names="$(for deb in dist/*.deb; do dpkg-deb -f "$deb" Package; done)"
+          # shellcheck disable=SC2086
+          sudo apt-get remove -y $names
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdl3-debs-noble-amd64
+          path: dist/*.deb
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,76 @@
+# Development packages the builds detect optional backends from. Nothing here
+# is strictly required -- a missing package just disables the backend it feeds --
+# but installing the lot is what produces fully featured packages.
+#
+# Install them with:
+#   sudo apt install $(grep -vE '^\s*(#|$)' build-deps.txt)
+#
+# This file is the single source of truth: the CI workflows install exactly
+# this list. Run ./make.sh features after a build to see what was enabled.
+
+# --- toolchain ---
+build-essential
+cmake
+ninja-build
+git
+pkg-config
+dpkg-dev
+
+# --- audio ---
+libasound2-dev
+libpulse-dev
+libpipewire-0.3-dev
+libjack-jackd2-dev
+libsndio-dev
+
+# --- video: X11 ---
+libx11-dev
+libxext-dev
+libxrandr-dev
+libxcursor-dev
+libxfixes-dev
+libxi-dev
+libxss-dev
+libxkbcommon-dev
+
+# --- video: Wayland and KMS/DRM ---
+libwayland-dev
+wayland-protocols
+libdecor-0-dev
+libdrm-dev
+libgbm-dev
+
+# --- graphics APIs ---
+libgl-dev
+libgles-dev
+libegl-dev
+libvulkan-dev
+
+# --- platform integration ---
+libudev-dev
+libdbus-1-dev
+libibus-1.0-dev
+libusb-1.0-0-dev
+liburing-dev
+
+# --- text (SDL3_ttf, plutosvg) ---
+libfreetype-dev
+libharfbuzz-dev
+
+# --- images (SDL3_image) ---
+libpng-dev
+libjpeg-dev
+libtiff-dev
+libwebp-dev
+libavif-dev
+libjxl-dev
+
+# --- audio codecs (SDL3_mixer) ---
+libvorbis-dev
+libopusfile-dev
+libflac-dev
+libmpg123-dev
+libxmp-dev
+libwavpack-dev
+libgme-dev
+libfluidsynth-dev
