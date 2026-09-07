@@ -18,11 +18,11 @@ packages for.
 | Package | Contents |
 | --- | --- |
 | `libsdl3-0` / `libsdl3-dev` | SDL3 itself |
-| `libsdl3-image-0` / `libsdl3-image-dev` | image loading (PNG, JPEG, WebP, AVIF, JXL, TIFF, SVG, …) |
-| `libsdl3-mixer-0` / `libsdl3-mixer-dev` | audio mixing (WAV, FLAC, MP3, Vorbis, Opus, MOD, MIDI) |
-| `libsdl3-net-0` / `libsdl3-net-dev` | TCP/UDP networking |
-| `libsdl3-ttf-0` / `libsdl3-ttf-dev` | TrueType text, HarfBuzz shaping, colour emoji |
-| `libplutosvg-0` / `libplutosvg-dev` | plutosvg + plutovg, which SDL3_ttf uses for colour emoji |
+| `libsdl3-image0` / `libsdl3-image-dev` | image loading (PNG, JPEG, WebP, AVIF, JXL, TIFF, SVG, …) |
+| `libsdl3-mixer0` / `libsdl3-mixer-dev` | audio mixing (WAV, FLAC, MP3, Vorbis, Opus, MOD, MIDI) |
+| `libsdl3-net0` / `libsdl3-net-dev` | TCP/UDP networking |
+| `libsdl3-ttf0` / `libsdl3-ttf-dev` | TrueType text, HarfBuzz shaping, colour emoji |
+| `libplutosvg0` / `libplutosvg-dev` | plutosvg + plutovg, which SDL3_ttf uses for colour emoji |
 
 Each library ships as a runtime package and a matching `-dev` package, the way
 Debian splits them: the shared library in one, the headers, `pkg-config` file
@@ -204,6 +204,22 @@ that tree the same way `lib/common.sh` does locally.
 `SDLxxx_VENDORED=OFF` and builds against the system libraries, so the `external/`
 submodules are ~330 MB that no Linux build reads. Excluding them takes the source
 package from 384 MB to 17 MB compressed.
+
+### Package names
+
+The runtime packages are named the way Debian and Ubuntu name them for these
+SONAMEs — `libsdl3-0`, `libsdl3-image0`, `libsdl3-mixer0`, `libsdl3-net0`,
+`libsdl3-ttf0`, `libplutosvg0` — rather than being given distinct names to sit alongside the
+archive's. That is deliberate: Ubuntu ships its own SDL3 from 25.04 onward, and
+a PPA package with the same name and a higher version *supersedes* the archive
+one, which is the whole point of a PPA. A different name would instead put two
+packages shipping the same `libSDL3.so.0` on the system and make them conflict
+at the file level, with no upgrade path between them.
+
+The satellites lost a hyphen (`libsdl3-ttf-0` became `libsdl3-ttf0`) when this
+was first published. The runtime packages carry `Conflicts`/`Replaces` on the
+old names so that anyone holding the `.deb` files from an earlier GitHub release
+upgrades cleanly instead of hitting a file conflict.
 
 ### Versioning
 

@@ -57,7 +57,7 @@ override_dh_missing:
 #
 # dh_makeshlibs has already written each package's DEBIAN/shlibs by this point,
 # so once the libraries are findable dpkg-shlibdeps resolves them to
-# libsdl3-0 (>= ...) and libplutosvg-0 (>= ...) on its own.
+# libsdl3-0 (>= ...) and libplutosvg0 (>= ...) on its own.
 override_dh_shlibdeps:
 	dh_shlibdeps \
-	    -l$(CURDIR)/debian/libsdl3-0/usr/lib/$(DEB_HOST_MULTIARCH):$(CURDIR)/debian/libplutosvg-0/usr/lib/$(DEB_HOST_MULTIARCH)
+	    -l$(CURDIR)/debian/libsdl3-0/usr/lib/$(DEB_HOST_MULTIARCH):$(CURDIR)/debian/libplutosvg0/usr/lib/$(DEB_HOST_MULTIARCH)

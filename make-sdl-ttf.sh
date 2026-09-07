@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Builds SDL3_ttf and packages it into libsdl3-ttf-0 / libsdl3-ttf-dev.
+# Builds SDL3_ttf and packages it into libsdl3-ttf0 / libsdl3-ttf-dev.
 #
 # Depends on SDL3 having been built first: it is resolved from the staging
 # prefix under build/, not from the system, so nothing has to be installed.
@@ -44,10 +44,10 @@ SOMAJOR="$(find "$PKGSTAGE" -name 'lib*.so.[0-9]*' -not -name '*.so.*.*' -print 
 SOMAJOR="${SOMAJOR##*.so.}"
 
 DEV_EXTRA_DEPENDS="libsdl3-dev"
-make_packages "$PKGSTAGE" "libsdl3-ttf-$SOMAJOR" "libsdl3-ttf-dev" "$VERSION" \
+make_packages "$PKGSTAGE" "libsdl3-ttf$SOMAJOR" "libsdl3-ttf-dev" "$VERSION" \
     "https://github.com/libsdl-org/SDL_ttf" "$SRC/LICENSE.txt" \
     "SDL3_ttf TrueType font rendering library" \
 " SDL3_ttf is an add-on for SDL 3 that renders TrueType fonts to SDL surfaces
  and textures, with text shaping through HarfBuzz and colour emoji through
  plutosvg." \
-    "libsdl3-0 (>= $SDL3_VERSION), libplutosvg-0 (>= $PLUTOSVG_VERSION)"
+    "libsdl3-0 (>= $SDL3_VERSION), libplutosvg0 (>= $PLUTOSVG_VERSION)"

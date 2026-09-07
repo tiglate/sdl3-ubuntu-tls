@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Builds SDL3_mixer and packages it into libsdl3-mixer-0 / libsdl3-mixer-dev.
+# Builds SDL3_mixer and packages it into libsdl3-mixer0 / libsdl3-mixer-dev.
 #
 # Depends on SDL3 having been built first: it is resolved from the staging
 # prefix under build/, not from the system, so nothing has to be installed.
@@ -41,7 +41,7 @@ SOMAJOR="$(find "$PKGSTAGE" -name 'lib*.so.[0-9]*' -not -name '*.so.*.*' -print 
 SOMAJOR="${SOMAJOR##*.so.}"
 
 DEV_EXTRA_DEPENDS="libsdl3-dev"
-make_packages "$PKGSTAGE" "libsdl3-mixer-$SOMAJOR" "libsdl3-mixer-dev" "$VERSION" \
+make_packages "$PKGSTAGE" "libsdl3-mixer$SOMAJOR" "libsdl3-mixer-dev" "$VERSION" \
     "https://github.com/libsdl-org/SDL_mixer" "$SRC/LICENSE.txt" \
     "SDL3_mixer audio mixer library" \
 " SDL3_mixer is an add-on for SDL 3 that mixes and decodes audio: WAV, FLAC,

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Builds plutosvg (and plutovg, which it bundles as a submodule) and packages
-# both into libplutosvg-0 / libplutosvg-dev.
+# both into libplutosvg0 / libplutosvg-dev.
 #
 # This is what gives SDL3_ttf its colour-emoji support. Neither library is
 # packaged for Debian or Ubuntu. One build produces both, and they are versioned
@@ -27,7 +27,7 @@ configure_and_build "$SRC" "$BUILD" \
     `# plutosvg only falls back to its bundled plutovg when find_package cannot` \
     `# see one already (CMakeLists.txt: "if(NOT plutovg_FOUND) add_subdirectory").` \
     `# Once libplutosvg-dev is installed that check succeeds, and the next build` \
-    `# quietly produces a libplutosvg-0 carrying no libplutovg.so at all -- while` \
+    `# quietly produces a libplutosvg0 carrying no libplutovg.so at all -- while` \
     `# its .pc still says "Requires: plutovg". The package pair is defined as` \
     `# shipping both, so refuse to find an outside copy, the same way SDL3 is` \
     `# pinned for the satellites.` \
@@ -43,7 +43,7 @@ VERSION="$(sed -n 's/^Version: *//p' "$PKGSTAGE/usr/lib/$MULTIARCH/pkgconfig/plu
 SOMAJOR="$(find "$PKGSTAGE" -name 'libplutosvg.so.[0-9]*' -type f -print -quit)"
 SOMAJOR="${SOMAJOR##*.so.}"; SOMAJOR="${SOMAJOR%%.*}"
 
-make_packages "$PKGSTAGE" "libplutosvg-$SOMAJOR" "libplutosvg-dev" "$VERSION" \
+make_packages "$PKGSTAGE" "libplutosvg$SOMAJOR" "libplutosvg-dev" "$VERSION" \
     "https://github.com/sammycage/plutosvg" "$SRC/LICENSE" \
     "plutosvg and plutovg" \
 " plutosvg renders SVG documents, including the OpenType-SVG glyphs used for

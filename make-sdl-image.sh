@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Builds SDL3_image and packages it into libsdl3-image-0 / libsdl3-image-dev.
+# Builds SDL3_image and packages it into libsdl3-image0 / libsdl3-image-dev.
 #
 # Depends on SDL3 having been built first: it is resolved from the staging
 # prefix under build/, not from the system, so nothing has to be installed.
@@ -44,7 +44,7 @@ SOMAJOR="$(find "$PKGSTAGE" -name 'lib*.so.[0-9]*' -not -name '*.so.*.*' -print 
 SOMAJOR="${SOMAJOR##*.so.}"
 
 DEV_EXTRA_DEPENDS="libsdl3-dev"
-make_packages "$PKGSTAGE" "libsdl3-image-$SOMAJOR" "libsdl3-image-dev" "$VERSION" \
+make_packages "$PKGSTAGE" "libsdl3-image$SOMAJOR" "libsdl3-image-dev" "$VERSION" \
     "https://github.com/libsdl-org/SDL_image" "$SRC/LICENSE.txt" \
     "SDL3_image image loading library" \
 " SDL3_image is an add-on for SDL 3 that loads images as SDL surfaces and

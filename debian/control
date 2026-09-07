@@ -89,10 +89,16 @@ Description: Simple DirectMedia Layer 3 (development files)
  This package contains the headers, the static library, pkg-config and CMake
  files needed to build against it.
 
-Package: libsdl3-image-0
+Package: libsdl3-image0
 Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}
+# Was libsdl3-image-0 before this was published to a PPA, which is not the name
+# Debian and Ubuntu use for this SONAME. Anyone who installed the .deb files
+# from a GitHub release has the old name, and both packages ship the same
+# files, so an upgrade needs these two to replace it rather than collide.
+Conflicts: libsdl3-image-0
+Replaces: libsdl3-image-0
 Description: SDL3_image image loading library (shared library)
  SDL3_image is an add-on for SDL 3 that loads images as SDL surfaces and
  textures: PNG, JPEG, WebP, AVIF, JPEG XL, TIFF, SVG and more.
@@ -105,7 +111,7 @@ Description: SDL3_image image loading library (shared library)
 Package: libsdl3-image-dev
 Section: libdevel
 Architecture: any
-Depends: libsdl3-image-0 (= ${binary:Version}), libsdl3-dev, ${misc:Depends}
+Depends: libsdl3-image0 (= ${binary:Version}), libsdl3-dev, ${misc:Depends}
 Description: SDL3_image image loading library (development files)
  SDL3_image is an add-on for SDL 3 that loads images as SDL surfaces and
  textures: PNG, JPEG, WebP, AVIF, JPEG XL, TIFF, SVG and more.
@@ -113,10 +119,16 @@ Description: SDL3_image image loading library (development files)
  This package contains the headers, pkg-config and CMake files needed to build
  against it.
 
-Package: libsdl3-mixer-0
+Package: libsdl3-mixer0
 Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}
+# Was libsdl3-mixer-0 before this was published to a PPA, which is not the name
+# Debian and Ubuntu use for this SONAME. Anyone who installed the .deb files
+# from a GitHub release has the old name, and both packages ship the same
+# files, so an upgrade needs these two to replace it rather than collide.
+Conflicts: libsdl3-mixer-0
+Replaces: libsdl3-mixer-0
 Description: SDL3_mixer audio mixer library (shared library)
  SDL3_mixer is an add-on for SDL 3 that mixes and decodes audio: WAV, FLAC,
  MP3, Ogg Vorbis, Opus, MOD and MIDI.
@@ -132,7 +144,7 @@ Architecture: any
 # ${shlibs:Depends}, unlike the other -dev packages, because this one ships
 # upstream's installed example programs under /usr/libexec and those are ELF
 # binaries linking libSDL3_mixer and libSDL3.
-Depends: libsdl3-mixer-0 (= ${binary:Version}), libsdl3-dev, ${shlibs:Depends},
+Depends: libsdl3-mixer0 (= ${binary:Version}), libsdl3-dev, ${shlibs:Depends},
  ${misc:Depends}
 Description: SDL3_mixer audio mixer library (development files)
  SDL3_mixer is an add-on for SDL 3 that mixes and decodes audio: WAV, FLAC,
@@ -141,10 +153,16 @@ Description: SDL3_mixer audio mixer library (development files)
  This package contains the headers, pkg-config and CMake files needed to build
  against it, and the installed example programs.
 
-Package: libsdl3-net-0
+Package: libsdl3-net0
 Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}
+# Was libsdl3-net-0 before this was published to a PPA, which is not the name
+# Debian and Ubuntu use for this SONAME. Anyone who installed the .deb files
+# from a GitHub release has the old name, and both packages ship the same
+# files, so an upgrade needs these two to replace it rather than collide.
+Conflicts: libsdl3-net-0
+Replaces: libsdl3-net-0
 Description: SDL3_net networking library (shared library)
  SDL3_net is an add-on for SDL 3 providing a small portable TCP and UDP
  networking API.
@@ -154,7 +172,7 @@ Description: SDL3_net networking library (shared library)
 Package: libsdl3-net-dev
 Section: libdevel
 Architecture: any
-Depends: libsdl3-net-0 (= ${binary:Version}), libsdl3-dev, ${misc:Depends}
+Depends: libsdl3-net0 (= ${binary:Version}), libsdl3-dev, ${misc:Depends}
 Description: SDL3_net networking library (development files)
  SDL3_net is an add-on for SDL 3 providing a small portable TCP and UDP
  networking API.
@@ -162,10 +180,16 @@ Description: SDL3_net networking library (development files)
  This package contains the headers, pkg-config and CMake files needed to build
  against it.
 
-Package: libsdl3-ttf-0
+Package: libsdl3-ttf0
 Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}
+# Was libsdl3-ttf-0 before this was published to a PPA, which is not the name
+# Debian and Ubuntu use for this SONAME. Anyone who installed the .deb files
+# from a GitHub release has the old name, and both packages ship the same
+# files, so an upgrade needs these two to replace it rather than collide.
+Conflicts: libsdl3-ttf-0
+Replaces: libsdl3-ttf-0
 Description: SDL3_ttf TrueType font rendering library (shared library)
  SDL3_ttf is an add-on for SDL 3 that renders TrueType fonts to SDL surfaces
  and textures, with text shaping through HarfBuzz and colour emoji through
@@ -176,7 +200,7 @@ Description: SDL3_ttf TrueType font rendering library (shared library)
 Package: libsdl3-ttf-dev
 Section: libdevel
 Architecture: any
-Depends: libsdl3-ttf-0 (= ${binary:Version}), libsdl3-dev, libplutosvg-dev,
+Depends: libsdl3-ttf0 (= ${binary:Version}), libsdl3-dev, libplutosvg-dev,
  ${misc:Depends}
 Description: SDL3_ttf TrueType font rendering library (development files)
  SDL3_ttf is an add-on for SDL 3 that renders TrueType fonts to SDL surfaces
@@ -186,10 +210,14 @@ Description: SDL3_ttf TrueType font rendering library (development files)
  This package contains the headers, pkg-config and CMake files needed to build
  against it.
 
-Package: libplutosvg-0
+Package: libplutosvg0
 Architecture: any
 Multi-Arch: same
 Depends: ${shlibs:Depends}, ${misc:Depends}
+# Renamed from libplutosvg-0 for the same reason as the SDL satellites: a
+# SONAME ending in a letter takes the version with no separator.
+Conflicts: libplutosvg-0
+Replaces: libplutosvg-0
 Description: plutosvg and plutovg (shared libraries)
  plutosvg renders SVG documents, including the OpenType-SVG glyphs used for
  colour emoji, on top of the plutovg canvas. Built here with its FreeType
@@ -203,7 +231,7 @@ Description: plutosvg and plutovg (shared libraries)
 Package: libplutosvg-dev
 Section: libdevel
 Architecture: any
-Depends: libplutosvg-0 (= ${binary:Version}), ${misc:Depends}
+Depends: libplutosvg0 (= ${binary:Version}), ${misc:Depends}
 Description: plutosvg and plutovg (development files)
  plutosvg renders SVG documents, including the OpenType-SVG glyphs used for
  colour emoji, on top of the plutovg canvas. Built here with its FreeType

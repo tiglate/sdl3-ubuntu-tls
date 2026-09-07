@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Builds SDL3_net and packages it into libsdl3-net-0 / libsdl3-net-dev.
+# Builds SDL3_net and packages it into libsdl3-net0 / libsdl3-net-dev.
 #
 # Depends on SDL3 having been built first: it is resolved from the staging
 # prefix under build/, not from the system, so nothing has to be installed.
@@ -36,7 +36,7 @@ SOMAJOR="$(find "$PKGSTAGE" -name 'lib*.so.[0-9]*' -not -name '*.so.*.*' -print 
 SOMAJOR="${SOMAJOR##*.so.}"
 
 DEV_EXTRA_DEPENDS="libsdl3-dev"
-make_packages "$PKGSTAGE" "libsdl3-net-$SOMAJOR" "libsdl3-net-dev" "$VERSION" \
+make_packages "$PKGSTAGE" "libsdl3-net$SOMAJOR" "libsdl3-net-dev" "$VERSION" \
     "https://github.com/libsdl-org/SDL_net" "$SRC/LICENSE.txt" \
     "SDL3_net networking library" \
 " SDL3_net is an add-on for SDL 3 providing a small portable networking API
